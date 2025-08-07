@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L&D Game Day Buzzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .buzz-btn {
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+        }
+        .buzz-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.7);
+        }
+        /* Simple fade-in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 space-y-8">
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-blue-600 dark:text-blue-400">L&D Game Day</h1>
+            <p class="text-gray-500 dark:text-gray-400 mt-2">First to buzz wins the point!</p>
+        </div>
+
+        <!-- Buzzer Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input type="text" id="name" placeholder="Enter your name (Required)" class="md:col-span-2 w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <div>
+            <button id="buzzButton" class="w-full buzz-btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-2xl shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500">
+                BUZZ!
+            </button>
+            <div id="message" class="text-center h-6 mt-4 transition-opacity duration-300"></div>
+        </div>
+
+        <!-- Buzz History -->
+        <div>
+            <div class="flex justify-between items-center mb-4">
+                 <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">History</h2>
+                 <button id="refreshButton" class="text-gray-400 hover:text-white transition-transform duration-300 hover:rotate-90" title="Refresh History">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 11M20 20l-1.5-1.5A9 9 0 003.5 13" />
+                    </svg>
+                 </button>
+            </div>
+            <div id="historyLoader" class="text-center py-4 text-gray-400 hidden">Loading history...</div>
+            <ul id="buzzHistory" class="space-y-3 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg max-h-80 overflow-y-auto">
+                <!-- History items will be populated by JavaScript -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // IMPORTANT: Replace this with your new Web App URL after re-deploying the script.
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzB0eGfQxRuByEh_SFqmiqFrPjet6Kjn9HJ7Iib5gHi7aaltVWdtWJuMgoHpRgctIfxtA/exec";
+        
+        const nameInput = document.getElementById('name');
+        const questionNumberInput = document.getElementById('questionNumber');
+        const buzzButton = document.getElementById('buzzButton');
+        const refreshButton = document.getElementById('refreshButton');
+        const messageDiv = document.getElementById('message');
+        const buzzHistoryUl = document.getElementById('buzzHistory');
+        const historyLoader = document.getElementById('historyLoader');
+
+        async function fetchBuzzes() {
+            historyLoader.classList.remove('hidden');
+            buzzHistoryUl.innerHTML = '';
+            try {
+                const response = await fetch(SCRIPT_URL);
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                const buzzes = await response.json();
+                
+                if (Array.isArray(buzzes) && buzzes.length > 0) {
+                    buzzes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    buzzes.forEach(buzz => {
+                        const li = document.createElement('li');
+                        li.className = 'flex justify-between items-center bg-white dark:bg-gray-800 p-3 rounded-md shadow-sm animate-fade-in';
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'font-semibold text-blue-600 dark:text-blue-400';
+                        // Display Question Number only if it exists
+                        nameSpan.textContent = buzz.questionNumber ? `Q#${buzz.questionNumber}: ${buzz.name}` : buzz.name;
+                        
+                        const timeSpan = document.createElement('span');
+                        timeSpan.className = 'text-sm text-gray-500 dark:text-gray-400';
+                        timeSpan.textContent = new Date(buzz.timestamp).toLocaleString();
+                        
+                        li.appendChild(nameSpan);
+                        li.appendChild(timeSpan);
+                        buzzHistoryUl.appendChild(li);
+                    });
+                } else {
+                    buzzHistoryUl.innerHTML = `<li class="text-gray-500 text-center">No one has buzzed in yet.</li>`;
+                }
+            } catch (error) {
+                buzzHistoryUl.innerHTML = `<li class="text-red-500 text-center">Failed to load history. Make sure the script URL is correct and deployed.</li>`;
+                console.error('Error fetching buzzes:', error);
+            } finally {
+                 historyLoader.classList.add('hidden');
+            }
+        }
+
+        async function submitBuzz() {
+            const name = nameInput.value.trim();
+            const questionNumber = questionNumberInput.value.trim();
+
+            if (!name) {
+                messageDiv.textContent = 'Please enter your name!';
+                messageDiv.className = 'text-center h-6 text-yellow-500 dark:text-yellow-400';
+                return;
+            }
+
+            buzzButton.disabled = true;
+            buzzButton.textContent = 'SENDING...';
+            messageDiv.textContent = '';
+
+            try {
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('questionNumber', questionNumber);
+
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'no-cors'
+                });
+
+                // Set success message based on whether a question number was provided
+                let successMessage;
+                if (questionNumber) {
+                    successMessage = `${name} buzzed for Question ${questionNumber}!`;
+                } else {
+                    successMessage = `${name} buzzed just now!`;
+                }
+                messageDiv.textContent = successMessage;
+                messageDiv.className = 'text-center h-6 text-green-600 dark:text-green-400';
+                
+                // Clear inputs after successful buzz
+                nameInput.value = '';
+                questionNumberInput.value = '';
+
+                setTimeout(fetchBuzzes, 1000);
+
+            } catch (error) {
+                messageDiv.textContent = 'A network error occurred. Please try again.';
+                messageDiv.className = 'text-center h-6 text-red-500';
+                console.error('Error submitting buzz:', error);
+            } finally {
+                buzzButton.disabled = false;
+                buzzButton.textContent = 'BUZZ!';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchBuzzes();
+            buzzButton.addEventListener('click', submitBuzz);
+            refreshButton.addEventListener('click', fetchBuzzes);
+            questionNumberInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    submitBuzz();
+                }
+            });
+            nameInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    submitBuzz();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
